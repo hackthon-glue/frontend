@@ -21,7 +21,7 @@ export default function Home() {
           <div className="pointer-events-auto max-w-xl rounded-2xl border border-white/30 bg-white/10 p-6 shadow-[0_25px_80px_-40px_rgba(56,189,248,0.85)] backdrop-blur-xl">
             <p className="text-xs uppercase tracking-[0.3em] text-sky-300/80">Earth Insight Hub</p>
             <h1 className="mt-3 text-3xl font-semibold leading-tight text-slate-50 sm:text-4xl">
-              Navigate the planet, surface signals, and drop into local dashboards instantly.
+              Gauge Earth&apos;s mood from news and weather, then dive into country dashboards.
             </h1>
             <p className="mt-4 text-sm text-slate-200">
               Drag to orbit, scroll to zoom, and tap a glowing beacon to reveal live sentiment, weather stories, and an AI-generated persona for that region.
