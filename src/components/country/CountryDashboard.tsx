@@ -30,6 +30,7 @@ type ExtendedTooltipProps<T> = TooltipProps<ValueType, NameType> & {
     name?: NameType;
     payload?: T;
   }>;
+  label?: NameType;
 };
 
 const SentimentTooltip = ({
