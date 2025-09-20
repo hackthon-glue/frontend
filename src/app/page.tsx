@@ -1,103 +1,100 @@
-import Image from "next/image";
+'use client';
+
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { Globe } from '@/components/globe/Globe';
+import { countries as mockCountries, type CountryMock } from '@/data/mockCountryData';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [selectedCountry, setSelectedCountry] = useState<CountryMock | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const countries = useMemo(() => mockCountries, []);
+
+  return (
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-slate-950 text-slate-100">
+      <div className="absolute inset-0">
+        <Globe countries={countries} onSelect={setSelectedCountry} />
+      </div>
+
+      <div className="pointer-events-none relative z-10 flex flex-1 flex-col justify-between bg-gradient-to-b from-sky-900/30 via-slate-800/10 to-slate-950/60">
+        <header className="px-6 pt-10 sm:px-12">
+          <div className="pointer-events-auto max-w-xl rounded-2xl border border-white/30 bg-white/10 p-6 shadow-[0_25px_80px_-40px_rgba(56,189,248,0.85)] backdrop-blur-xl">
+            <p className="text-xs uppercase tracking-[0.3em] text-sky-300/80">Earth Insight Hub</p>
+            <h1 className="mt-3 text-3xl font-semibold leading-tight text-slate-50 sm:text-4xl">
+              Navigate the planet, surface signals, and drop into local dashboards instantly.
+            </h1>
+            <p className="mt-4 text-sm text-slate-200">
+              Drag to orbit, scroll to zoom, and tap a glowing beacon to reveal live sentiment, weather stories, and an AI-generated persona for that region.
+            </p>
+          </div>
+        </header>
+
+        <aside className="px-6 pb-10 sm:px-12">
+          <div className="pointer-events-auto max-w-sm rounded-2xl border border-white/30 bg-white/10 p-4 backdrop-blur-xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-200/90">Active regions</p>
+            <ul className="mt-3 space-y-2 text-sm text-slate-200">
+              {countries.map((country) => (
+                <li key={country.code} className="flex items-center justify-between gap-3">
+                  <span className="font-medium text-slate-50">{country.name}</span>
+                  <button
+                    type="button"
+                    className="rounded-full border border-sky-200/60 bg-sky-100/5 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-100 transition hover:border-sky-200 hover:bg-sky-100/20"
+                    onClick={() => setSelectedCountry(country)}
+                  >
+                    Focus
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </aside>
+      </div>
+
+      {selectedCountry && (
+        <div className="pointer-events-auto fixed inset-x-4 bottom-10 z-20 mx-auto max-w-2xl rounded-3xl border border-white/40 bg-white/15 p-6 shadow-[0_30px_90px_-45px_rgba(56,189,248,1)] backdrop-blur-2xl">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-sky-200/90">{selectedCountry.name}</p>
+              <div className="mt-2">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.35em] text-slate-200/90">News signal</p>
+                <h2 className="mt-1 text-xl font-semibold text-slate-50">
+                  {selectedCountry.insights.news[0]?.title ?? selectedCountry.summary.headline}
+                </h2>
+                <p className="mt-2 text-sm text-slate-200">
+                  {selectedCountry.insights.news[0]?.summary ?? selectedCountry.summary.headline}
+                </p>
+              </div>
+              <div className="mt-3 grid gap-3 text-sm text-slate-300 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-300">Weather</p>
+                  <p className="mt-1 leading-relaxed text-slate-100">{selectedCountry.summary.weather}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-300">Persona</p>
+                  <p className="mt-1 leading-relaxed text-slate-100">{selectedCountry.summary.persona}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-300">Deep dive</p>
+                  <Link
+                    href={`/country/${selectedCountry.code}`}
+                    className="mt-1 inline-flex items-center gap-2 rounded-full border border-sky-200/60 bg-sky-100/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-100 transition hover:border-sky-100 hover:bg-sky-100/30"
+                  >
+                    Open dashboard
+                    <span aria-hidden>→</span>
+                  </Link>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="rounded-full border border-white/40 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-slate-100 transition hover:border-white/60 hover:bg-white/20"
+              onClick={() => setSelectedCountry(null)}
+            >
+              Close
+            </button>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
     </div>
   );
 }
