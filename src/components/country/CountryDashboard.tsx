@@ -14,11 +14,7 @@ import {
   YAxis
 } from 'recharts';
 import type { TooltipProps } from 'recharts';
-import type {
-  NameType,
-  ValueType,
-  TooltipPayload
-} from 'recharts/types/component/DefaultTooltipContent';
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import type { CountryMock } from '@/data/mockCountryData';
 
 const tooltipClasses =
@@ -29,11 +25,11 @@ type SentimentTooltipPayload = CountryMock['insights']['sentiment'][number];
 type WeatherTooltipPayload = CountryMock['insights']['weatherTrend'][number];
 
 type ExtendedTooltipProps<T> = TooltipProps<ValueType, NameType> & {
-  payload?: Array<
-    TooltipPayload<ValueType, NameType> & {
-      payload?: T;
-    }
-  >;
+  payload?: Array<{
+    value?: ValueType;
+    name?: NameType;
+    payload?: T;
+  }>;
 };
 
 const SentimentTooltip = ({
