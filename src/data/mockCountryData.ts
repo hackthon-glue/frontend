@@ -67,6 +67,95 @@ export type CountryMock = {
 
 const toTrend = (value: number) => (value > 0 ? `+${value}` : `${value}`);
 
+export type CompositeMood = {
+  score: number; // 0-100
+  band: 'sad' | 'neutral' | 'happy';
+};
+
+export const computeCompositeMood = (country: CountryMock): CompositeMood => {
+  // Base: average sentiment
+  const sentiments = country.insights.sentiment;
+  const avgSent = sentiments.length
+    ? sentiments.reduce((a, b) => a + b.score, 0) / sentiments.length
+    : 50;
+
+  // Weather comfort: optimal 12–26°C, penalize outside
+  const t = country.insights.weatherNow.temperature;
+  const distance = t < 12 ? 12 - t : t > 26 ? t - 26 : 0;
+  const comfort = Math.max(0, 100 - distance * 6); // ~6 pts per °C outside band
+
+  // Alerts penalty
+  const penalty = country.insights.alerts.reduce((acc, a) => {
+    if (a.level === 'warning') return acc + 20;
+    if (a.level === 'watch') return acc + 10;
+    return acc + 5; // info
+  }, 0);
+  const alertScore = Math.max(0, 100 - Math.min(60, penalty));
+
+  const raw = 0.7 * avgSent + 0.2 * comfort + 0.1 * alertScore;
+  const score = Math.max(0, Math.min(100, Math.round(raw)));
+
+  let band: CompositeMood['band'];
+  if (score <= 30) band = 'sad';
+  else if (score <= 70) band = 'neutral';
+  else band = 'happy';
+
+  return { score, band };
+};
+
+const dayKeyFromDate = (d: Date): string => {
+  const keys = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return keys[d.getDay()];
+};
+
+const clampDays = (n: number) => Math.max(0, Math.min(30, n));
+
+export const computeCompositeMoodAt = (
+  country: CountryMock,
+  at: Date
+): CompositeMood => {
+  // Sentiment: weight current day within last week more heavily
+  const sentiments = country.insights.sentiment;
+  const avgSent = sentiments.length
+    ? sentiments.reduce((a, b) => a + b.score, 0) / sentiments.length
+    : 50;
+
+  // Assume insights.sentiment[6] (Day 7) ~ today; roll back by days delta within 0-30
+  const today = new Date();
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const diffDays = clampDays(Math.floor((today.setHours(0, 0, 0, 0) as unknown as number) / 1 - (new Date(at).setHours(0, 0, 0, 0) as unknown as number) / 1) / (msPerDay as unknown as number));
+  const idx = sentiments.length
+    ? (sentiments.length - 1 - (diffDays % sentiments.length) + sentiments.length) % sentiments.length
+    : 0;
+  const currentSent = sentiments[idx]?.score ?? avgSent;
+  const weightedSent = 0.7 * currentSent + 0.3 * avgSent;
+
+  // Weather by weekday
+  const key = dayKeyFromDate(at);
+  const wt = country.insights.weatherTrend.find((w) => w.date.startsWith(key));
+  const temp = wt?.temperature ?? country.insights.weatherNow.temperature;
+  const distance = temp < 12 ? 12 - temp : temp > 26 ? temp - 26 : 0;
+  const comfort = Math.max(0, 100 - distance * 6);
+
+  // Alerts: same penalty model as current
+  const penalty = country.insights.alerts.reduce((acc, a) => {
+    if (a.level === 'warning') return acc + 20;
+    if (a.level === 'watch') return acc + 10;
+    return acc + 5;
+  }, 0);
+  const alertScore = Math.max(0, 100 - Math.min(60, penalty));
+
+  const raw = 0.7 * weightedSent + 0.2 * comfort + 0.1 * alertScore;
+  const score = Math.max(0, Math.min(100, Math.round(raw)));
+
+  let band: CompositeMood['band'];
+  if (score <= 30) band = 'sad';
+  else if (score <= 70) band = 'neutral';
+  else band = 'happy';
+
+  return { score, band };
+};
+
 export const countries: CountryMock[] = [
   {
     code: "jp",

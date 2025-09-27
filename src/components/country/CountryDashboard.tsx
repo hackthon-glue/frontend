@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -16,6 +16,8 @@ import {
 import type { TooltipProps } from 'recharts';
 import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import type { CountryMock } from '@/data/mockCountryData';
+import { computeCompositeMood, computeCompositeMoodAt } from '@/data/mockCountryData';
+import { CountryChat } from './CountryChat';
 
 const tooltipClasses =
   'rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs text-slate-100 shadow-xl backdrop-blur-2xl';
@@ -77,11 +79,6 @@ const WeatherTooltip = ({
   );
 };
 
-const sentimentToneStyles: Record<CountryMock['insights']['stats'][number]['sentiment'], string> = {
-  positive: 'border-emerald-200/40 bg-emerald-300/10 text-emerald-100',
-  neutral: 'border-slate-200/40 bg-slate-200/10 text-slate-100',
-  negative: 'border-rose-200/40 bg-rose-400/10 text-rose-100'
-};
 
 const alertLevelStyles: Record<CountryMock['insights']['alerts'][number]['level'], string> = {
   info: 'border-sky-200/40 bg-sky-100/10 text-sky-100',
@@ -96,7 +93,20 @@ const tonePills: Record<CountryMock['insights']['news'][number]['tone'], string>
   urgent: 'bg-rose-300/20 text-rose-100 border border-rose-200/50'
 };
 
-export const CountryDashboard = ({ country }: CountryDashboardProps) => {
+export type CountryDashboardProps = {
+  country: CountryMock;
+  asOf?: Date;
+};
+
+export const CountryDashboard = ({ country, asOf }: CountryDashboardProps) => {
+  const composite = asOf ? computeCompositeMoodAt(country, asOf) : computeCompositeMood(country);
+  const [meter, setMeter] = useState(0);
+  useEffect(() => {
+    // animate from 0 to score
+    const id = setTimeout(() => setMeter(composite.score), 80);
+    return () => clearTimeout(id);
+  }, [composite.score]);
+
   const sentimentPoints = country.insights.sentiment;
   const firstScore = sentimentPoints[0]?.score ?? 0;
   const lastScore = sentimentPoints[sentimentPoints.length - 1]?.score ?? 0;
@@ -110,7 +120,7 @@ export const CountryDashboard = ({ country }: CountryDashboardProps) => {
   const moodNarrative = country.insights.moodNarrative;
   const weather = country.insights.weatherNow;
   const alerts = country.insights.alerts;
-  const stats = country.insights.stats;
+  // stats section removed per request
 
   const weatherFacts = useMemo(
     () => [
@@ -121,6 +131,45 @@ export const CountryDashboard = ({ country }: CountryDashboardProps) => {
     ],
     [weather]
   );
+
+  
+
+  const sentimentInterpretation = useMemo(() => {
+    const dir = sentimentDelta > 0 ? 'rising' : sentimentDelta < 0 ? 'easing' : 'steady';
+    const mood = averageSentiment >= 66 ? 'optimistic' : averageSentiment >= 45 ? 'balanced' : 'cautious';
+    return `Pulse is ${dir}; overall mood feels ${mood}. Local conversations lean ${mood} with ${deltaLabel} week-on-week.`;
+  }, [averageSentiment, deltaLabel, sentimentDelta]);
+
+  
+
+  const weatherInterpretation = useMemo(() => {
+    const temps = country.insights.weatherTrend.map((d) => d.temperature);
+    const span = Math.max(...temps) - Math.min(...temps);
+    const avg = Math.round(temps.reduce((a, b) => a + b, 0) / temps.length);
+    const volatility = span <= 3 ? 'stable' : span <= 6 ? 'moderately variable' : 'highly variable';
+    return `Pattern is ${volatility} around an average of ${avg}°C. Comfort reads ${avg >= 12 && avg <= 26 ? 'pleasant' : 'challenging'}.`;
+  }, [country.insights.weatherTrend]);
+
+  const Bubble = ({ title, text }: { title: string; text: string }) => (
+    <div className="max-w-sm rounded-2xl border border-white/25 bg-white/10 p-4 text-sm text-slate-100 shadow-xl backdrop-blur-xl">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-white/70">{title}</p>
+      <p className="mt-2 leading-relaxed">{text}</p>
+    </div>
+  );
+
+  const ringColor =
+    composite.band === 'happy' ? '#34d399' : composite.band === 'neutral' ? '#fbbf24' : '#f87171';
+
+  const bandLabel = composite.band === 'happy' ? 'Happy' : composite.band === 'neutral' ? 'Neutral' : 'Sad';
+
+  const circumference = 2 * Math.PI * 48; // r=48
+  const progress = Math.max(0, Math.min(100, meter));
+  const dash = (progress / 100) * circumference;
+
+  const snapshotDate = asOf ?? new Date();
+  snapshotDate.setHours(0, 0, 0, 0);
+  const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const snapshotLabel = `${snapshotDate.toISOString().slice(0, 10)} (${weekday[snapshotDate.getDay()]})`;
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_30%_-10%,rgba(56,189,248,0.25)_0%,rgba(56,189,248,0.08)_35%,transparent_65%),radial-gradient(circle_at_85%_-5%,rgba(190,242,255,0.18)_0%,rgba(14,165,233,0.1)_45%,transparent_75%),#061324] text-slate-100">
@@ -137,60 +186,83 @@ export const CountryDashboard = ({ country }: CountryDashboardProps) => {
             href="/"
             className="inline-flex items-center gap-2 rounded-full border border-sky-200/60 bg-sky-100/10 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-sky-100 transition hover:border-sky-100 hover:bg-sky-100/30"
           >
-            ← Back to globe
+            🌍 Back to Globe
           </Link>
+        </div>
+
+        <div className="rounded-3xl border border-white/25 bg-white/10 p-5 text-center backdrop-blur-xl">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-300">Snapshot</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-50">As of {snapshotLabel}</p>
         </div>
 
         <section className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <div className="rounded-3xl border border-white/25 bg-white/10 p-6 backdrop-blur-xl">
-            <div className="flex flex-wrap items-start justify-between gap-6">
-              <div className="max-w-xl space-y-4">
-                <p className="text-xs uppercase tracking-[0.25em] text-sky-200/90">Mood narrative</p>
-                <h2 className="text-2xl font-semibold text-slate-50">{country.summary.headline}</h2>
-                <p className="text-sm text-slate-200">{moodNarrative}</p>
-                <div className="flex flex-wrap gap-4 text-sm text-slate-200">
-                  <div className="rounded-2xl border border-sky-200/40 bg-sky-100/10 px-3 py-2">
-                    <p className="text-[11px] uppercase tracking-[0.25em] text-slate-300">Persona</p>
-                    <p className="mt-1 text-slate-100">{country.summary.persona}</p>
-                  </div>
-                  <div className="rounded-2xl border border-emerald-200/30 bg-emerald-100/10 px-3 py-2">
-                    <p className="text-[11px] uppercase tracking-[0.25em] text-slate-300">Current weather</p>
-                    <p className="mt-1 text-slate-100">{country.summary.weather}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="shrink-0 rounded-2xl border border-white/20 bg-white/10 px-6 py-4 text-center backdrop-blur">
-                <p className="text-xs uppercase tracking-[0.25em] text-slate-300">Mood score</p>
-                <p className="mt-3 text-4xl font-semibold text-slate-50">{averageSentiment}</p>
-                <p className="mt-2 text-sm text-emerald-200">{deltaLabel} vs last week</p>
-              </div>
+            <p className="text-xs uppercase tracking-[0.25em] text-sky-200/90">One‑liner (as of {snapshotLabel})</p>
+            <h2 className="mt-1 text-2xl font-semibold text-slate-50">{country.summary.headline}</h2>
+            <p className="mt-3 text-base text-slate-100">{country.summary.persona}</p>
+            <p className="mt-3 text-sm text-slate-200">{moodNarrative}</p>
+            <div className="mt-4 rounded-2xl border border-emerald-200/30 bg-emerald-100/10 px-3 py-2 text-sm text-slate-200">
+              <span className="text-[11px] uppercase tracking-[0.25em] text-slate-300">Weather (capital)</span>
+              <span className="ml-2 text-slate-100">{country.summary.weather}</span>
             </div>
           </div>
           <div className="grid gap-4">
-            {stats.map((stat) => (
-              <div
-                key={stat.label}
-                className={`rounded-3xl border px-4 py-5 backdrop-blur-xl ${sentimentToneStyles[stat.sentiment]}`}
-              >
-                <p className="text-xs uppercase tracking-[0.25em] text-white/70">{stat.label}</p>
-                <div className="mt-3 flex items-center justify-between">
-                  <p className="text-lg font-semibold">{stat.value}</p>
-                  <span className="text-xs uppercase tracking-[0.2em] text-white/70">{stat.change}</span>
+            {/* Composite mood ring */}
+            <div className="rounded-3xl border border-white/25 bg-white/10 p-5 backdrop-blur-xl">
+              <div className="flex items-center justify-between">
+                <p className="text-xs uppercase tracking-[0.25em] text-slate-300">Composite mood</p>
+              </div>
+              <div className="mt-3 flex items-center gap-5">
+                <div className="relative h-28 w-28">
+                  <svg className="h-28 w-28 -rotate-90" viewBox="0 0 120 120">
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="48"
+                      stroke="#1f2a4a"
+                      strokeWidth="8"
+                      fill="none"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="48"
+                      stroke={ringColor}
+                      strokeWidth="8"
+                      fill="none"
+                      strokeDasharray={`${dash} ${circumference - dash}`}
+                      strokeLinecap="round"
+                      style={{ transition: 'stroke-dasharray 900ms ease' }}
+                    />
+                  </svg>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span className="text-2xl font-semibold text-slate-50">{composite.score}</span>
+                    <span className="text-xs uppercase tracking-[0.25em] text-slate-300">/ 100</span>
+                  </div>
+                  {/* subtle glow */}
+                  <div
+                    className="pointer-events-none absolute inset-0 rounded-full"
+                    style={{ boxShadow: `0 0 30px 6px ${ringColor}22` }}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm text-slate-200">Overall band</p>
+                  <p className="text-lg font-semibold text-slate-50">{bandLabel}</p>
+                  <p className="text-xs text-slate-400">0–30 Sad • 31–70 Neutral • 71–100 Happy</p>
                 </div>
               </div>
-            ))}
+            </div>
+            {/* Removed insight stats cards */}
           </div>
         </section>
 
         <section className="rounded-3xl border border-white/20 bg-white/10 p-6 backdrop-blur-xl">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-slate-200/80">Today&apos;s summary</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-50">地球感情ダイジェスト</h2>
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-200/80">Today&apos;s mood digest</p>
+              <h2 className="mt-1 text-lg font-semibold text-slate-50">Daily highlight</h2>
             </div>
-            <span className="rounded-full border border-sky-200/40 bg-sky-100/10 px-3 py-1 text-xs font-semibold text-sky-100">
-              300-500字ハイライト
-            </span>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-slate-100">
             {country.insights.todaySummary}
@@ -199,6 +271,7 @@ export const CountryDashboard = ({ country }: CountryDashboardProps) => {
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
           <div className="space-y-6">
+            {/* Graph 1: Sentiment + persona interpretation */}
             <section className="rounded-3xl border border-white/25 bg-white/10 p-6 backdrop-blur-xl">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
@@ -209,45 +282,54 @@ export const CountryDashboard = ({ country }: CountryDashboardProps) => {
                   Net change: {deltaLabel}
                 </div>
               </div>
-              <div className="mt-4 h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={country.insights.sentiment}>
-                    <CartesianGrid stroke="#1f2a4a" strokeDasharray="3 6" />
-                    <XAxis dataKey="date" stroke="#dbeafe" tickLine={false} />
-                    <YAxis stroke="#dbeafe" tickLine={false} domain={[0, 100]} />
-                    <Tooltip content={<SentimentTooltip />} />
-                    <Line
-                      type="monotone"
-                      dataKey="score"
-                      stroke="#38bdf8"
-                      strokeWidth={3}
-                      dot={{ r: 4, strokeWidth: 2, stroke: '#f8fafc', fill: '#38bdf8' }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+                <div className="h-72 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={country.insights.sentiment}>
+                      <CartesianGrid stroke="#1f2a4a" strokeDasharray="3 6" />
+                      <XAxis dataKey="date" stroke="#dbeafe" tickLine={false} />
+                      <YAxis stroke="#dbeafe" tickLine={false} domain={[0, 100]} />
+                      <Tooltip content={<SentimentTooltip />} />
+                      <Line
+                        type="monotone"
+                        dataKey="score"
+                        stroke="#38bdf8"
+                        strokeWidth={3}
+                        dot={{ r: 4, strokeWidth: 2, stroke: '#f8fafc', fill: '#38bdf8' }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <Bubble title="Persona take" text={sentimentInterpretation} />
               </div>
             </section>
 
+            
+
+            {/* Graph 3: Weather variation + persona interpretation */}
             <section className="rounded-3xl border border-white/25 bg-white/10 p-6 backdrop-blur-xl">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.25em] text-slate-200/80">Weather trend</p>
+                  <p className="text-xs uppercase tracking-[0.25em] text-slate-200/80">Weather change</p>
                   <h2 className="mt-1 text-lg font-semibold text-slate-50">Temperature swing</h2>
                 </div>
                 <div className="rounded-full border border-sky-200/40 bg-sky-100/10 px-3 py-1 text-xs font-semibold text-sky-100">
                   Avg: {Math.round(country.insights.weatherTrend.reduce((acc, item) => acc + item.temperature, 0) / country.insights.weatherTrend.length)}°C
                 </div>
               </div>
-              <div className="mt-4 h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={country.insights.weatherTrend}>
-                    <CartesianGrid stroke="#1f2a4a" strokeDasharray="3 6" />
-                    <XAxis dataKey="date" stroke="#dbeafe" tickLine={false} />
-                    <YAxis stroke="#dbeafe" tickLine={false} />
-                    <Tooltip content={<WeatherTooltip />} />
-                    <Bar dataKey="temperature" fill="#f97316" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)]">
+                <div className="h-72 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={country.insights.weatherTrend}>
+                      <CartesianGrid stroke="#1f2a4a" strokeDasharray="3 6" />
+                      <XAxis dataKey="date" stroke="#dbeafe" tickLine={false} />
+                      <YAxis stroke="#dbeafe" tickLine={false} />
+                      <Tooltip content={<WeatherTooltip />} />
+                      <Bar dataKey="temperature" fill="#f97316" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <Bubble title="Persona take" text={weatherInterpretation} />
               </div>
             </section>
           </div>
@@ -362,8 +444,11 @@ export const CountryDashboard = ({ country }: CountryDashboardProps) => {
   );
 };
 
-export type CountryDashboardProps = {
-  country: CountryMock;
-};
-
-export default CountryDashboard;
+export default function DashboardWithChat(props: CountryDashboardProps) {
+  return (
+    <>
+      <CountryDashboard {...props} />
+      <CountryChat country={props.country} asOf={props.asOf} />
+    </>
+  );
+}

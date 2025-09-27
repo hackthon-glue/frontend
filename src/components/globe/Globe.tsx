@@ -6,10 +6,12 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import * as THREE from 'three';
 import type { CountryMock } from '@/data/mockCountryData';
+import { computeCompositeMood, computeCompositeMoodAt } from '@/data/mockCountryData';
 
 type GlobeProps = {
   countries: CountryMock[];
   onSelect: (country: CountryMock) => void;
+  selectedDate?: Date;
 };
 
 const EARTH_RADIUS = 1.2;
@@ -207,9 +209,10 @@ const Earth = ({ children }: EarthProps) => {
 type CountryMarkerProps = {
   country: CountryMock;
   onSelect: (country: CountryMock) => void;
+  selectedDate?: Date;
 };
 
-const CountryMarker = ({ country, onSelect }: CountryMarkerProps) => {
+const CountryMarker = ({ country, onSelect, selectedDate }: CountryMarkerProps) => {
   const position = useMemo(
     () => latLngToVector3(country.lat, country.lng, EARTH_RADIUS + 0.045),
     [country.lat, country.lng]
@@ -219,19 +222,32 @@ const CountryMarker = ({ country, onSelect }: CountryMarkerProps) => {
   const spriteRef = useRef<THREE.Sprite>(null);
   const glowTexture = useMemo(() => createGlowTexture(), []);
 
+  // Compute composite mood (0–100) and band for visual encoding
+  const mood = useMemo(() => {
+    return selectedDate ? computeCompositeMoodAt(country, selectedDate) : computeCompositeMood(country);
+  }, [country, selectedDate]);
+  const bandColor = useMemo(() => {
+    if (mood.band === 'happy') return '#34d399'; // green
+    if (mood.band === 'neutral') return '#fbbf24'; // amber
+    return '#f87171'; // red
+  }, [mood.band]);
+  const emissiveIntensity = useMemo(() => 0.25 + (mood.score / 100) * 0.45, [mood.score]);
+
   useFrame(({ clock }) => {
     const time = clock.getElapsedTime();
 
     if (markerRef.current) {
-      const scale = 0.85 + Math.sin(time * 2.1) * 0.1;
+      const amp = 0.08 + (mood.score / 100) * 0.08; // pulse amplitude by score
+      const scale = 0.9 + Math.sin(time * 2.1) * amp;
       markerRef.current.scale.setScalar(scale);
     }
 
     if (spriteRef.current) {
-      const wave = 0.16 + Math.sin(time * 1.8) * 0.02;
+      const base = 0.14 + (mood.score / 100) * 0.05;
+      const wave = base + Math.sin(time * 1.8) * (0.015 + (mood.score / 100) * 0.02);
       spriteRef.current.scale.set(wave, wave, 1);
       const spriteMaterial = spriteRef.current.material as THREE.SpriteMaterial;
-      spriteMaterial.opacity = 0.55 + Math.sin(time * 2.2) * 0.1;
+      spriteMaterial.opacity = 0.45 + (mood.score / 100) * 0.25 + Math.sin(time * 2.2) * 0.08;
     }
   });
 
@@ -258,11 +274,11 @@ const CountryMarker = ({ country, onSelect }: CountryMarkerProps) => {
       <mesh ref={markerRef}>
         <icosahedronGeometry args={[0.02, 1]} />
         <meshStandardMaterial
-          color="#fb923c"
-          emissive="#facc15"
-          emissiveIntensity={0.45}
-          metalness={0.08}
-          roughness={0.4}
+          color={bandColor}
+          emissive={bandColor}
+          emissiveIntensity={emissiveIntensity}
+          metalness={0.06}
+          roughness={0.35}
         />
       </mesh>
       {glowTexture && (
@@ -270,10 +286,11 @@ const CountryMarker = ({ country, onSelect }: CountryMarkerProps) => {
           <spriteMaterial
             map={glowTexture}
             transparent
-            opacity={0.65}
+            opacity={0.6}
             depthWrite={false}
             depthTest
             blending={THREE.AdditiveBlending}
+            color={new THREE.Color(bandColor)}
           />
         </sprite>
       )}
@@ -281,7 +298,7 @@ const CountryMarker = ({ country, onSelect }: CountryMarkerProps) => {
   );
 };
 
-export const Globe = ({ countries, onSelect }: GlobeProps) => {
+export const Globe = ({ countries, onSelect, selectedDate }: GlobeProps) => {
   return (
     <Canvas
       camera={{ position: [0, 0, 4], fov: 45, near: 0.1, far: 1000 }}
@@ -305,6 +322,7 @@ export const Globe = ({ countries, onSelect }: GlobeProps) => {
             key={country.code}
             country={country}
             onSelect={onSelect}
+            selectedDate={selectedDate}
           />
         ))}
       </Earth>
