@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { CountryMock } from '@/data/mockCountryData';
-import { computeCompositeMood } from '@/data/mockCountryData';
+import type { Country } from '@/types/country';
+import { computeCompositeMood } from '@/utils/countryMood';
 
 export type CountryChatProps = {
-  country: CountryMock;
+  country: Country;
   asOf?: Date;
 };
 
@@ -23,7 +23,10 @@ const ChatIcon = ({ className = 'h-5 w-5' }: { className?: string }) => (
 );
 
 export const CountryChat = ({ country }: CountryChatProps) => {
-  const [open, setOpen] = useState(true);
+  // Start collapsed on both PC and mobile
+  const [open, setOpen] = useState(false);
+  // Brief attention animation so users notice the chat entry point
+  const [hint, setHint] = useState(true);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     const mood = computeCompositeMood(country);
@@ -44,12 +47,10 @@ export const CountryChat = ({ country }: CountryChatProps) => {
     }
   }, [messages, open]);
 
-  // On mobile, start collapsed; on desktop, start open
+  // After mount, keep the attention animation for a few seconds then stop
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const isMobile = window.matchMedia('(max-width: 639px)').matches; // < sm
-      if (isMobile) setOpen(false);
-    }
+    const t = setTimeout(() => setHint(false), 5000);
+    return () => clearTimeout(t);
   }, []);
 
   const agentReply = (userText: string): string => {
@@ -91,10 +92,15 @@ export const CountryChat = ({ country }: CountryChatProps) => {
       {!open && (
         <button
           type="button"
-          className="pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-white/10 text-slate-100 shadow-xl backdrop-blur hover:border-white/50 hover:bg-white/20 sm:hidden"
+          className={`pointer-events-auto relative inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/30 bg-white/10 text-slate-100 shadow-xl backdrop-blur hover:border-white/50 hover:bg-white/20`}
           onClick={() => setOpen(true)}
           aria-label="Open chat"
+          title="Chat"
+          aria-expanded={open}
         >
+          {hint && (
+            <span className="pointer-events-none absolute inset-0 -z-10 inline-flex rounded-full bg-sky-300/30 animate-ping" />
+          )}
           <ChatIcon />
         </button>
       )}
@@ -106,13 +112,13 @@ export const CountryChat = ({ country }: CountryChatProps) => {
               <p className="text-[11px] uppercase tracking-[0.3em] text-slate-300">Country agent</p>
               <p className="text-sm font-semibold text-slate-100">{country.name}</p>
             </div>
-            {/* Minimize only on mobile */}
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="inline-flex rounded-md border border-white/20 bg-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.2em] text-slate-100 hover:border-white/40 hover:bg-white/20 sm:hidden"
+              className="inline-flex rounded-md border border-white/20 bg-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.2em] text-slate-100 hover:border-white/40 hover:bg-white/20"
+              aria-label="Close chat"
             >
-              Minimize
+              Close
             </button>
           </div>
           <div ref={scrollRef} className="max-h-[300px] min-h-[220px] space-y-3 overflow-y-auto px-4 py-3">

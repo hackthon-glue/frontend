@@ -1,18 +1,51 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Globe } from '@/components/globe/Globe';
-import { countries as mockCountries, type CountryMock, computeCompositeMoodAt } from '@/data/mockCountryData';
+import { fetchCountries } from '@/services/countryService';
+import type { Country } from '@/types/country';
+import { computeCompositeMoodAt } from '@/utils/countryMood';
 
 export default function Home() {
-  const [selectedCountry, setSelectedCountry] = useState<CountryMock | null>(null);
-  const countries = useMemo(() => mockCountries, []);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [dateStr, setDateStr] = useState<string>(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
     return d.toISOString().slice(0, 10);
   });
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
+    fetchCountries()
+      .then((data) => {
+        if (!active) return;
+        setCountries(data);
+      })
+      .catch((err: unknown) => {
+        if (!active) return;
+        console.error(err);
+        setError('Unable to load regions right now.');
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selectedCountry = useMemo(
+    () => (selectedCode ? countries.find((country) => country.code === selectedCode) ?? null : null),
+    [countries, selectedCode]
+  );
 
   const selectedDate = useMemo(() => new Date(dateStr), [dateStr]);
   const dateOptions = useMemo(() => {
@@ -32,7 +65,7 @@ export default function Home() {
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-slate-950 text-slate-100">
       <div className="absolute inset-0">
-        <Globe countries={countries} onSelect={setSelectedCountry} selectedDate={selectedDate} />
+        <Globe countries={countries} onSelect={(country) => setSelectedCode(country.code)} selectedDate={selectedDate} />
       </div>
 
       <div className="pointer-events-none relative z-10 flex flex-1 flex-col justify-between bg-gradient-to-b from-sky-900/30 via-slate-800/10 to-slate-950/60">
@@ -66,18 +99,24 @@ export default function Home() {
               </select>
             </div>
             <ul className="mt-3 space-y-2 text-sm text-slate-200">
-              {countries.map((country) => (
-                <li key={country.code} className="flex items-center justify-between gap-3">
-                  <span className="font-medium text-slate-50">{country.name}</span>
-                  <button
-                    type="button"
-                    className="rounded-full border border-sky-200/60 bg-sky-100/5 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-100 transition hover:border-sky-200 hover:bg-sky-100/20"
-                    onClick={() => setSelectedCountry(country)}
-                  >
-                    Focus
-                  </button>
-                </li>
-              ))}
+              {loading && <li className="text-slate-300">Loading regions…</li>}
+              {!loading && error && <li className="text-rose-200">{error}</li>}
+              {!loading && !error && !countries.length && (
+                <li className="text-slate-300">No regions available yet.</li>
+              )}
+              {!loading && !error &&
+                countries.map((country) => (
+                  <li key={country.code} className="flex items-center justify-between gap-3">
+                    <span className="font-medium text-slate-50">{country.name}</span>
+                    <button
+                      type="button"
+                      className="rounded-full border border-sky-200/60 bg-sky-100/5 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-100 transition hover:border-sky-200 hover:bg-sky-100/20"
+                      onClick={() => setSelectedCode(country.code)}
+                    >
+                      Focus
+                    </button>
+                  </li>
+                ))}
             </ul>
             <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-300">
               <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(16,185,129,0.6)]"></span>Happy</span>
@@ -133,7 +172,7 @@ export default function Home() {
             <button
               type="button"
               className="rounded-full border border-white/40 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-widest text-slate-100 transition hover:border-white/60 hover:bg-white/20"
-              onClick={() => setSelectedCountry(null)}
+              onClick={() => setSelectedCode(null)}
             >
               Close
             </button>

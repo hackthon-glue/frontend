@@ -1,37 +1,64 @@
-import { notFound } from 'next/navigation';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import CountryDashboard from '@/components/country/CountryDashboard';
-import { countries, getCountryByCode } from '@/data/mockCountryData';
+import { fetchCountryByCode } from '@/services/countryService';
+import type { Country } from '@/types/country';
 
-type CountryPageProps = {
-  params: Promise<{ code: string }>;
-  searchParams: Promise<{ date?: string }>;
-};
+export default function CountryPage() {
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const code = params.code as string;
+  const dateParam = searchParams.get('date');
 
-export function generateStaticParams() {
-  return countries.map((country) => ({ code: country.code }));
-}
+  const [country, setCountry] = useState<Country | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-export async function generateMetadata({ params, searchParams }: CountryPageProps) {
-  const { code } = await params;
-  const { date } = await searchParams;
-  const country = getCountryByCode(code);
-  const name = country?.name ?? 'Country insights';
-  const suffix = date ? ` (as of ${date})` : '';
-  return {
-    title: `${name}${suffix} | Earth Insight Hub`
-  };
-}
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError(null);
 
-export default async function CountryPage({ params, searchParams }: CountryPageProps) {
-  const { code } = await params;
-  const { date } = await searchParams;
-  const country = getCountryByCode(code);
+    fetchCountryByCode(code)
+      .then((data) => {
+        if (!active) return;
+        setCountry(data);
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.error(err);
+        setError('Unable to load country data.');
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
 
-  if (!country) {
-    notFound();
+    return () => {
+      active = false;
+    };
+  }, [code]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
+        <p>Loading country data...</p>
+      </div>
+    );
   }
 
-  const asOf = date ? new Date(date) : undefined;
+  if (error || !country) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
+        <p className="text-rose-300">{error ?? 'Country not found.'}</p>
+      </div>
+    );
+  }
+
+  const asOf = dateParam ? new Date(dateParam) : undefined;
 
   return <CountryDashboard country={country} asOf={asOf} />;
 }

@@ -5,12 +5,12 @@ import { OrbitControls, Stars, useTexture } from '@react-three/drei';
 import { useEffect, useMemo, useRef } from 'react';
 import type { ReactNode } from 'react';
 import * as THREE from 'three';
-import type { CountryMock } from '@/data/mockCountryData';
-import { computeCompositeMood, computeCompositeMoodAt } from '@/data/mockCountryData';
+import type { Country } from '@/types/country';
+import { computeCompositeMood, computeCompositeMoodAt } from '@/utils/countryMood';
 
 type GlobeProps = {
-  countries: CountryMock[];
-  onSelect: (country: CountryMock) => void;
+  countries: Country[];
+  onSelect: (country: Country) => void;
   selectedDate?: Date;
 };
 
@@ -207,8 +207,8 @@ const Earth = ({ children }: EarthProps) => {
 };
 
 type CountryMarkerProps = {
-  country: CountryMock;
-  onSelect: (country: CountryMock) => void;
+  country: Country;
+  onSelect: (country: Country) => void;
   selectedDate?: Date;
 };
 
