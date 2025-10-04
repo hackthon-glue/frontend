@@ -308,9 +308,9 @@ export const CountryDashboard = ({ country, asOf }: CountryDashboardProps) => {
             </span>
           </div>
           <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {country.insights.news.map((article) => (
+            {country.insights.news.map((article, index) => (
               <article
-                key={article.title}
+                key={`${article.url}-${index}`}
                 className="flex h-full flex-col justify-between rounded-2xl border border-white/15 bg-white/5 p-4 transition hover:border-sky-200/60 hover:bg-sky-100/10"
               >
                 <div className="space-y-2">
